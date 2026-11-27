@@ -1,185 +1,335 @@
-# hsr_description — Hazardous Environment Search Robot (Gazebo / ROS 2)
+# HSR Search and Rescue Robot Simulation
 
-Robot description and Gazebo simulation setup for the UCF Intro to Robotics search-and-rescue
-robot. Generated from the approved SOLIDWORKS assembly
-(`CAD/Assembly/Hazardous_Environment_Search_Robot.SLDASM`, unchanged by the export).
+**EGN 4060C - Introduction to Robotics | Fall 2026 | Group 5**
 
-**Status:** spawned and tested in Gazebo Harmonic + ROS 2 Jazzy (headless, Ubuntu 24.04) —
-15/15 smoke-test checks passed. See `docs/test_report.md`. Not yet tested with a GUI,
-on a teammate's machine, or with SLAM/Nav2/CNN nodes running.
+## Project Overview
 
----
+This project involves developing a mobile search and rescue robot capable of navigating hazardous environments, mapping its surroundings, and identifying people using computer vision.
 
-## 1. Requirements
+The robot was designed in SOLIDWORKS and imported into Gazebo for simulation and testing. The simulation uses ROS 2 to communicate with the robot's sensors and control its movement.
 
-| Item | Version used for testing |
-|---|---|
-| OS | Ubuntu 24.04 (Windows users: WSL2 with Ubuntu 24.04 + WSLg) |
-| ROS 2 | Jazzy |
-| Gazebo | Harmonic (installed by `ros-jazzy-ros-gz`) |
+The ultimate goal is to integrate SLAM, A* path planning, and CNN-based human detection into a functioning autonomous search system.
+
+## Team Members
+
+- Ethan Hacker
+- Alfred Woodny Pierre
+- Jahdiel Dones
+- Yasmany Rodriguez
+
+## Robot Design
+
+The robot features:
+
+- Four-wheel skid-steer drive system
+- 2D LiDAR sensor for environmental mapping
+- Rotating RGB camera for human detection
+- Front-facing distance sensor for obstacle detection
+- Odometry for tracking robot movement
+- Aluminum chassis designed in SOLIDWORKS
+
+The robot's CAD assembly was exported into meshes and converted into a ROS 2-compatible simulation package.
+
+## Software Requirements
+
+The simulation was developed and tested using:
+
+- Ubuntu 24.04 LTS
+- ROS 2 Jazzy
+- Gazebo Harmonic
+- Python 3
+- ROS 2 Gazebo integration (`ros_gz`)
+- ROS 2 Colcon build tools
+
+Windows users can run Ubuntu through WSL2 without replacing Windows or dual-booting.
+
+## Installation
+
+### 1. Install ROS 2 Jazzy
+
+Follow the official installation instructions:
+
+https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html
+
+Install the required packages after configuring the ROS 2 repository:
 
 ```bash
 sudo apt update
-sudo apt install ros-jazzy-desktop ros-jazzy-ros-gz ros-jazzy-xacro \
-                 ros-jazzy-robot-state-publisher ros-jazzy-teleop-twist-keyboard \
-                 python3-colcon-common-extensions
+sudo apt install -y ros-jazzy-desktop ros-dev-tools
+sudo apt install -y ros-jazzy-ros-gz
 ```
 
-Other ROS 2 / Gazebo pairings (e.g. Kilted + Ionic) should work but are untested.
+### 2. Clone the repository
 
-## 2. Build
+```bash
+cd ~
+git clone https://github.com/EthanHakker/EGN4060C_F2026_G5.git
+```
+
+### 3. Create the ROS 2 workspace
 
 ```bash
 mkdir -p ~/hsr_ws/src
-cp -r hsr_description ~/hsr_ws/src/          # or unzip hsr_description.zip there
+cp -r ~/EGN4060C_F2026_G5/gazebo/hsr_description ~/hsr_ws/src/
+```
+
+### 4. Install dependencies and build
+
+```bash
 cd ~/hsr_ws
 source /opt/ros/jazzy/setup.bash
-colcon build --symlink-install
-source install/setup.bash                    # do this in every new terminal
 ```
 
-Sourcing `install/setup.bash` also adds the package to `GZ_SIM_RESOURCE_PATH`, which is how
-Gazebo finds the meshes (`package://hsr_description/meshes/...`).
-
-## 3. Launch and spawn
+If rosdep has not been initialized:
 
 ```bash
-ros2 launch hsr_description sim.launch.py                    # Gazebo GUI + robot
-ros2 launch hsr_description sim.launch.py headless:=true     # no GUI (faster, servers/CI)
-ros2 launch hsr_description sim.launch.py x:=-3 y:=-3 yaw:=0.785   # spawn pose
-ros2 launch hsr_description sim.launch.py world:=/abs/path/your_world.sdf
+sudo rosdep init
 ```
 
-The launch file starts Gazebo with `worlds/hsr_test_world.sdf` (8 x 8 m room with a doorway,
-debris boxes and a pillar), `robot_state_publisher`, spawns the robot as model `hsr`, and
-starts the ROS<->Gazebo bridge (`config/ros_gz_bridge.yaml`).
+Then run:
 
-**Using your own world:** it must load `gz-sim-sensors-system` with `<render_engine>ogre2</render_engine>`
-(plus physics, user-commands and scene-broadcaster systems) or the sensors will publish nothing.
-Copy the `<plugin>` block from `worlds/hsr_test_world.sdf`.
+```bash
+rosdep update
+rosdep install --from-paths src --ignore-src -r -y
+colcon build --symlink-install
+source install/setup.bash
+```
 
-**Without the launch file** (Gazebo only, no ROS nodes or bridge). With the ROS install above,
-`gz` is only on your PATH after `source /opt/ros/jazzy/setup.bash`; a standalone
-Gazebo Harmonic install (`sudo apt install gz-harmonic`) also works. Run from inside `hsr_description/`:
+## Running the Simulation
+
+### Original Test Environment
+
+The original simulation contains an 8 m × 8 m test arena with walls, a doorway, debris, and obstacles.
+
+Launch it using:
+
+```bash
+ros2 launch hsr_description sim.launch.py
+```
+
+This launches the original `hsr_test_world.sdf` environment.
+
+### Human Detection Environment
+
+A second world was created specifically for testing human detection.
+
+**World file:** `hsr_human_detection_world.sdf`
+
+It contains:
+
+- The original test arena
+- Two stationary human models
+- Interior walls and obstacles
+- The HSR robot
+
+The human models are named `victim_1` and `victim_2`.
+
+Their positions are:
+
+| Model | X (m) | Y (m) |
+|---|---|---|
+| victim_1 | 3.0 | 3.0 |
+| victim_2 | -2.5 | -2.5 |
+
+Launch the human-detection world:
+
+```bash
+ros2 launch hsr_description sim.launch.py \
+world:=$HOME/hsr_ws/src/hsr_description/worlds/hsr_human_detection_world.sdf
+```
+
+The human models are loaded from Gazebo Fuel. An internet connection may be required during the first launch.
+
+Both human models have been successfully loaded and visually verified in Gazebo.
+
+## ROS 2 Topics
+
+The following interfaces have been identified and tested in the simulation.
+
+| Topic | Message Type | Purpose |
+|---|---|---|
+| `/scan` | `sensor_msgs/msg/LaserScan` | LiDAR measurements |
+| `/front_range/scan` | `sensor_msgs/msg/LaserScan` | Front distance sensor |
+| `/cmd_vel` | `geometry_msgs/msg/Twist` | Linear and angular velocity commands |
+| `/odom` | `nav_msgs/msg/Odometry` | Robot position and orientation estimates |
+| `/camera/image_raw` | `sensor_msgs/msg/Image` | RGB camera images |
+| `/camera/camera_info` | `sensor_msgs/msg/CameraInfo` | Camera calibration information |
+| `/camera_pan/cmd_pos` | `std_msgs/msg/Float64` | Camera pan control |
+| `/joint_states` | `sensor_msgs/msg/JointState` | Robot joint states |
+
+To view the available topics, open another Ubuntu terminal and run:
+
 ```bash
 source /opt/ros/jazzy/setup.bash
-export GZ_SIM_RESOURCE_PATH=/path/containing/hsr_description_folder:$GZ_SIM_RESOURCE_PATH
-gz sim -r worlds/hsr_test_world.sdf &
-gz service -s /world/hsr_test_world/create --reqtype gz.msgs.EntityFactory \
-  --reptype gz.msgs.Boolean --timeout 5000 \
-  --req "sdf_filename: \"$PWD/urdf/hsr.urdf\", name: \"hsr\", pose: {position: {z: 0.01}}"
+source ~/hsr_ws/install/setup.bash
+ros2 topic list -t
 ```
 
-## 4. Drive, pan the camera, check it works
+## Sensor Testing
+
+### LiDAR
 
 ```bash
-ros2 run teleop_twist_keyboard teleop_twist_keyboard           # drive (publishes /cmd_vel)
-ros2 topic pub --once /camera_pan/cmd_pos std_msgs/msg/Float64 "{data: 1.57}"   # pan left 90 deg
-python3 src/hsr_description/scripts/smoke_test.py                # automated check (sim must be running)
+ros2 topic echo /scan --once
 ```
 
-## 5. Interfaces
+### Front Distance Sensor
 
-| Topic | Type | Dir | Notes |
-|---|---|---|---|
-| `/cmd_vel` | geometry_msgs/Twist | in | skid-steer; max 0.8 m/s, 2.0 rad/s |
-| `/camera_pan/cmd_pos` | std_msgs/Float64 | in | pan target angle, rad, ±π, + = left |
-| `/odom` | nav_msgs/Odometry | out | wheel odometry `odom` → `base_footprint` |
-| `/tf` | tf2_msgs/TFMessage | out | `odom` → `base_footprint` |
-| `/joint_states` | sensor_msgs/JointState | out | 4 wheels + pan |
-| `/scan` | sensor_msgs/LaserScan | out | 2D LiDAR, frame `laser_frame`, 360 beams @ 1°, 0.15–12 m, 10 Hz |
-| `/front_range/scan` | sensor_msgs/LaserScan | out | front distance sensor, frame `front_range_beam_frame`, 5 rays over ~15°, 0.02–4 m, 20 Hz — **use the minimum valid range** |
-| `/camera/image_raw` | sensor_msgs/Image | out | 640x480 rgb8, 70° HFOV, 15 Hz, frame `camera_optical_frame` |
-| `/camera/camera_info` | sensor_msgs/CameraInfo | out | intrinsics |
-| `/clock` | rosgraph_msgs/Clock | out | use `use_sim_time:=true` in all your nodes |
-
-Static TF (`robot_state_publisher`) covers all fixed frames and the wheel/pan joints.
-
-## 6. Frames (robot frame: X forward, Y left, Z up; origin = chassis centre at ground level)
-
-| Frame | Position (m) | Notes |
-|---|---|---|
-| `base_footprint` | (0, 0, 0) | root; use as SLAM/Nav2 base frame |
-| `base_link` | (0, 0, 0) | chassis + LiDAR mount + mast + guard (merged rigid body) |
-| `*_wheel_link` | (±0.125, ±0.18, 0.075) | continuous joints about +Y |
-| `lidar_link` | (0.08, 0, 0.205) | LiDAR body base |
-| `laser_frame` | (0.08, 0, **0.225**) | **scan plane** |
-| `camera_pan_link` | (−0.14, 0, 0.27) | revolute joint about +Z |
-| `camera_link` | (−0.14, 0, 0.32) at pan 0 | body centre, X = look direction |
-| `camera_optical_frame` | lens face, (−0.1125, 0, 0.32) at pan 0 | ROS optical convention (Z forward) |
-| `front_range_link` | (0.225, 0, 0.16) | distance sensor emitter |
-| `front_range_beam_frame` | same point | +X pitched **30° down**; beam hits flat floor 0.32 m ahead of the emitter |
-
-## 7. Where the numbers come from
-
-All geometry is **[CAD]** (from the approved model, mm → m). Mass/inertia of each part are
-**[CAD]** values computed by SOLIDWORKS from geometry + assigned material — they are *not*
-physical measurements. Everything else is an **[ESTIMATE]**. Full table:
-`docs/mass_and_parameters.md`. All values live in `urdf/hsr_properties.xacro`, which is
-generated by `scripts/gen_properties.py` from `docs/cad_mass_properties.json`.
-
-Key estimates you will probably want to change: 2.5 kg internal payload (battery/computer),
-wheel friction (μ1 = 1.0, μ2 = 0.8), the skid-steer effective track (0.514 m), and sensor
-specs (generic, not a specific product).
-
-## 8. Notes for SLAM, A* navigation and CNN detection
-
-* **LiDAR rear shadow (accepted in design review):** the camera mast blocks ~5 beams at ±180°
-  (readings ≈ 0.21 m). Filter them before SLAM, e.g. with `laser_filters`
-  (`LaserScanAngularBoundsFilterInPlace`, remove |angle| > 177°) or set the scan's usable
-  range minimum above 0.25 m.
-* **SLAM (slam_toolbox):** `base_frame: base_footprint`, `odom_frame: odom`,
-  `scan_topic: /scan`, `use_sim_time: true`.
-* **Navigation footprint:** 0.44 m x 0.40 m (X −0.20 to +0.24, Y ±0.20). Inflate accordingly
-  for A*/Nav2 costmaps.
-* **Front distance sensor** sees obstacles below the LiDAR plane (Z < 0.225 m) and floor
-  drop-offs: on flat floor it reads ≈ 0.32 m; a much larger value = hole/step down,
-  a smaller value = low obstacle.
-* **CNN:** the LiDAR and the front of the deck are visible at the bottom of the camera image
-  when the camera faces forward (bottom ~20% of the frame). Crop or mask that region. For a
-  test victim, uncomment the "Standing person" include in `worlds/hsr_test_world.sdf`
-  (downloads from Gazebo Fuel on first run).
-
-## 9. Skid-steer calibration
-
-Skid-steer robots slip when turning, so Gazebo's DiffDrive needs an *effective* wheel
-separation (0.514 m) rather than the physical 0.36 m track. With the physical value, the
-robot only turned ~70% of the commanded angle and odometry over-reported yaw by ~43%. After
-calibration: rotation odometry within 2% and straight-line within 1% of Gazebo ground truth.
-If you change mass, friction or wheels, re-run with the sim running:
 ```bash
-python3 src/hsr_description/scripts/calibrate_skid_steer.py
-```
-and update `skid_steer_wheel_separation` in `scripts/gen_properties.py`, then
-`python3 scripts/gen_properties.py` and rebuild.
-
-## 10. Package contents
-
-```
-hsr_description/
-├── CMakeLists.txt, package.xml       ROS 2 ament_cmake package
-├── README.md                         this file
-├── urdf/
-│   ├── hsr.urdf.xacro                main robot description (links, joints, visuals, collisions)
-│   ├── hsr.gazebo.xacro              Gazebo sensors, drive/joint plugins, friction
-│   ├── hsr_properties.xacro          GENERATED numeric values, tagged [CAD]/[ESTIMATE]
-│   └── hsr.urdf                      GENERATED flat URDF (for non-ROS use / inspection)
-├── meshes/                           9 binary STL files, metres, part frames (from SOLIDWORKS)
-├── launch/sim.launch.py              Gazebo + spawn + robot_state_publisher + bridge
-├── config/ros_gz_bridge.yaml         topic bridge definitions
-├── worlds/hsr_test_world.sdf         test arena with required Gazebo systems
-├── hooks/hsr_description.dsv.in      adds the package to GZ_SIM_RESOURCE_PATH
-├── scripts/
-│   ├── gen_properties.py             CAD JSON -> hsr_properties.xacro
-│   ├── validate_urdf.py              geometry/inertia checks vs CAD
-│   ├── smoke_test.py                 live simulation test (15 checks)
-│   └── calibrate_skid_steer.py       measures turning slip vs ground truth
-└── docs/
-    ├── cad_mass_properties.json      raw SOLIDWORKS mass properties (SI)
-    ├── mass_and_parameters.md        value provenance table
-    ├── test_report.md                validation + simulation test record
-    └── camera_view_test.png          camera frame captured during the test
+ros2 topic echo /front_range/scan --once
 ```
 
-After editing a `.xacro` file, regenerate the flat URDF:
-`xacro urdf/hsr.urdf.xacro > urdf/hsr.urdf`.
+### Odometry
+
+```bash
+ros2 topic echo /odom --once
+```
+
+All three topics have been verified to publish data successfully.
+
+Odometry provides the robot's estimated position and orientation. SLAM-based localization will be integrated separately to support mapping and navigation.
+
+## Manual Robot Control
+
+Install the keyboard controller:
+
+```bash
+sudo apt install -y ros-jazzy-teleop-twist-keyboard
+```
+
+With Gazebo running, open another terminal and run:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source ~/hsr_ws/install/setup.bash
+
+ros2 run teleop_twist_keyboard teleop_twist_keyboard \
+--ros-args -r cmd_vel:=/cmd_vel
+```
+
+Basic controls:
+
+| Key | Action |
+|---|---|
+| `i` | Move forward |
+| `,` | Move backward |
+| `j` | Rotate left |
+| `l` | Rotate right |
+| `k` | Stop |
+
+The robot has been successfully driven through the Gazebo environment using ROS 2 velocity commands.
+
+## Camera Testing
+
+The robot includes a rotating RGB camera.
+
+To view the camera feed, install the image viewer:
+
+```bash
+sudo apt install -y ros-jazzy-rqt-image-view
+```
+
+Then launch it:
+
+```bash
+ros2 run rqt_image_view rqt_image_view
+```
+
+Select:
+
+```text
+/camera/image_raw
+```
+
+This displays the robot's live camera feed.
+
+### Camera Rotation
+
+The camera can be rotated using ROS 2 commands.
+
+Neutral position:
+
+```bash
+ros2 topic pub --once /camera_pan/cmd_pos \
+std_msgs/msg/Float64 "{data: 0.0}"
+```
+
+Rotate approximately 90 degrees:
+
+```bash
+ros2 topic pub --once /camera_pan/cmd_pos \
+std_msgs/msg/Float64 "{data: 1.57}"
+```
+
+Rotate approximately -90 degrees:
+
+```bash
+ros2 topic pub --once /camera_pan/cmd_pos \
+std_msgs/msg/Float64 "{data: -1.57}"
+```
+
+### Human Detection Camera Test
+
+The human-detection world has been tested successfully.
+
+The robot was manually driven toward one of the simulated human models while monitoring `/camera/image_raw` using `rqt_image_view`.
+
+The camera successfully captured a human model, including its head, torso, arms, and legs.
+
+This confirms that the simulation can provide camera images containing human targets for future neural network testing.
+
+**Note:** Human detection by a CNN has not yet been implemented or validated. The current test confirms camera visibility, not automated recognition.
+
+## Mapping and Autonomous Navigation
+
+The simulation provides the sensor and control interfaces needed for integrating the team's mapping and navigation algorithms.
+
+Relevant topics include:
+
+- `/scan` for LiDAR measurements
+- `/odom` for odometry-based pose estimates
+- `/cmd_vel` for robot movement commands
+- `/tf` and `/tf_static` for coordinate transforms
+
+Planned software integration includes:
+
+1. SLAM-based mapping and localization
+2. A* path planning
+3. Autonomous robot movement
+4. Obstacle avoidance
+5. CNN-based human detection
+6. Reporting detected human locations
+
+These components will be developed and integrated with the Gazebo simulation as the project progresses.
+
+## Current Development Status
+
+| Component | Status |
+|---|---|
+| SOLIDWORKS robot model | Complete |
+| Robot Gazebo simulation | Working |
+| Four-wheel movement | Verified |
+| LiDAR sensor output | Verified |
+| Front distance sensor output | Verified |
+| Odometry output | Verified |
+| ROS 2 velocity control | Verified |
+| Camera image output | Verified |
+| Camera rotation | Verified |
+| Human models in Gazebo | Complete |
+| Human visibility through robot camera | Verified |
+| SLAM integration | Pending |
+| Autonomous navigation | Pending |
+| CNN human detection | Pending |
+| Full system integration | Pending |
+
+## Notes
+
+- The original test world is preserved separately from the human-detection world.
+- The human-detection world uses stationary human models for initial testing.
+- The robot's original CAD geometry does not need to be modified to run the human-detection environment.
+- Gazebo Fuel resources may require an internet connection during initial loading.
+- All verified simulation tests were performed using ROS 2 Jazzy and Gazebo Harmonic on Ubuntu 24.04 through WSL2.
+
+## Project Goal
+
+The final objective is to demonstrate a simulated search and rescue robot capable of autonomously exploring an environment, mapping its surroundings, navigating around obstacles, detecting people through its camera, and reporting their locations.
