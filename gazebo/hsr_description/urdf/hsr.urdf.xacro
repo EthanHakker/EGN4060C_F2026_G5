@@ -1,0 +1,257 @@
+<?xml version="1.0"?>
+<!--
+  Hazardous Environment Search Robot (HSR) - robot description
+  UCF Intro to Robotics group project.
+
+  Source: approved SOLIDWORKS assembly CAD/Assembly/Hazardous_Environment_Search_Robot.SLDASM
+  Frames: X forward, Y left, Z up (REP-103). Units: SI.
+  base_footprint / base_link origin = chassis centre in X/Y, at ground level (Z = 0),
+  identical to the CAD assembly origin, so every CAD coordinate maps 1:1 (mm -> m).
+
+  Moving joints (5): 4 x continuous wheel joints, 1 x revolute camera pan joint.
+  Fixed parts merged into base_link: chassis, LiDAR mount, camera mast, front sensor guard.
+  Sensors keep their own links/frames so TF and topic frame_ids are meaningful.
+
+  Numeric values live in hsr_properties.xacro (generated; tagged [CAD] or [ESTIMATE]).
+  Gazebo-specific sensors/plugins/friction live in hsr.gazebo.xacro.
+-->
+<robot name="hsr" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:arg name="use_gazebo" default="true"/>
+  <xacro:include filename="$(find hsr_description)/urdf/hsr_properties.xacro"/>
+
+  <xacro:property name="pkg" value="package://hsr_description/meshes"/>
+
+  <!-- ===== Materials (visual only) ===== -->
+  <material name="chassis_grey"><color rgba="0.45 0.47 0.50 1"/></material>
+  <material name="tyre_black"><color rgba="0.12 0.12 0.12 1"/></material>
+  <material name="alu_silver"><color rgba="0.80 0.80 0.82 1"/></material>
+  <material name="lidar_blue"><color rgba="0.10 0.40 0.90 1"/></material>
+  <material name="pan_dark"><color rgba="0.25 0.25 0.28 1"/></material>
+  <material name="camera_orange"><color rgba="1.00 0.55 0.10 1"/></material>
+  <material name="range_green"><color rgba="0.15 0.70 0.30 1"/></material>
+  <material name="guard_yellow"><color rgba="1.00 0.85 0.10 1"/></material>
+
+  <!-- ===== Root frame (REP-105: ground projection of the robot) ===== -->
+  <link name="base_footprint"/>
+
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ===== base_link: chassis + LiDAR mount + camera mast + sensor guard (rigid) ===== -->
+  <link name="base_link">
+    <inertial>
+      <origin xyz="${base_com_x} ${base_com_y} ${base_com_z}" rpy="0 0 0"/>
+      <mass value="${base_mass}"/>
+      <inertia ixx="${base_ixx}" ixy="${base_ixy}" ixz="${base_ixz}"
+               iyy="${base_iyy}" iyz="${base_iyz}" izz="${base_izz}"/>
+    </inertial>
+
+    <visual name="chassis_visual">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><mesh filename="${pkg}/chassis.stl"/></geometry>
+      <material name="chassis_grey"/>
+    </visual>
+    <visual name="lidar_mount_visual">
+      <origin xyz="${lidar_x} 0 ${deck_z}" rpy="0 0 0"/>
+      <geometry><mesh filename="${pkg}/lidar_mount.stl"/></geometry>
+      <material name="alu_silver"/>
+    </visual>
+    <visual name="camera_mast_visual">
+      <origin xyz="${mast_x} 0 ${deck_z}" rpy="0 0 0"/>
+      <geometry><mesh filename="${pkg}/camera_mast.stl"/></geometry>
+      <material name="alu_silver"/>
+    </visual>
+    <visual name="front_sensor_guard_visual">
+      <origin xyz="${guard_x} 0 ${range_z}" rpy="0 0 0"/>
+      <geometry><mesh filename="${pkg}/front_sensor_guard.stl"/></geometry>
+      <material name="guard_yellow"/>
+    </visual>
+
+    <!-- Collision: simple primitives matching CAD envelopes -->
+    <collision name="chassis_collision">
+      <origin xyz="0 0 ${ground_clearance + chassis_H/2}" rpy="0 0 0"/>
+      <geometry><box size="${chassis_L} ${chassis_W} ${chassis_H}"/></geometry>
+    </collision>
+    <collision name="lidar_mount_collision">
+      <origin xyz="${lidar_x} 0 ${deck_z + lidar_standoff/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="${lidar_radius}" length="${lidar_standoff}"/></geometry>
+    </collision>
+    <collision name="camera_mast_collision">
+      <origin xyz="${mast_x} 0 ${deck_z + mast_height/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="${mast_radius}" length="${mast_height}"/></geometry>
+    </collision>
+    <collision name="front_guard_collision">
+      <!-- solid envelope of the guard; also encloses the distance sensor body -->
+      <origin xyz="${guard_x + guard_depth/2} 0 ${range_z + (guard_zmin + guard_zmax)/2}" rpy="0 0 0"/>
+      <geometry><box size="${guard_depth} ${guard_W} ${guard_zmax - guard_zmin}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ===== Wheels (continuous, spin about +Y) ===== -->
+  <xacro:macro name="wheel" params="prefix x y">
+    <link name="${prefix}_wheel_link">
+      <inertial>
+        <origin xyz="${wheel_com_x} ${wheel_com_y} ${wheel_com_z}" rpy="0 0 0"/>
+        <mass value="${wheel_mass}"/>
+        <inertia ixx="${wheel_ixx}" ixy="${wheel_ixy}" ixz="${wheel_ixz}"
+                 iyy="${wheel_iyy}" iyz="${wheel_iyz}" izz="${wheel_izz}"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry><mesh filename="${pkg}/wheel.stl"/></geometry>
+        <material name="tyre_black"/>
+      </visual>
+      <collision>
+        <!-- URDF cylinders are along Z; roll 90 deg puts the axis on Y -->
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
+      </collision>
+    </link>
+    <joint name="${prefix}_wheel_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="${prefix}_wheel_link"/>
+      <origin xyz="${x} ${y} ${wheel_radius}" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <limit effort="${wheel_effort}" velocity="${wheel_velocity}"/>
+      <dynamics damping="${wheel_damping}" friction="${wheel_friction}"/>
+    </joint>
+  </xacro:macro>
+
+  <xacro:wheel prefix="front_left"  x="${wheelbase/2}"  y="${track/2}"/>
+  <xacro:wheel prefix="front_right" x="${wheelbase/2}"  y="${-track/2}"/>
+  <xacro:wheel prefix="rear_left"   x="${-wheelbase/2}" y="${track/2}"/>
+  <xacro:wheel prefix="rear_right"  x="${-wheelbase/2}" y="${-track/2}"/>
+
+  <!-- ===== 2D LiDAR ===== -->
+  <link name="lidar_link">
+    <inertial>
+      <origin xyz="${lidar_com_x} ${lidar_com_y} ${lidar_com_z}" rpy="0 0 0"/>
+      <mass value="${lidar_mass}"/>
+      <inertia ixx="${lidar_ixx}" ixy="${lidar_ixy}" ixz="${lidar_ixz}"
+               iyy="${lidar_iyy}" iyz="${lidar_iyz}" izz="${lidar_izz}"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><mesh filename="${pkg}/lidar.stl"/></geometry>
+      <material name="lidar_blue"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${lidar_height/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="${lidar_radius}" length="${lidar_height}"/></geometry>
+    </collision>
+  </link>
+  <joint name="lidar_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="lidar_link"/>
+    <origin xyz="${lidar_x} 0 ${deck_z + lidar_standoff}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Scan plane frame: Z = deck_z + standoff + scan_offset = 0.225 m -->
+  <link name="laser_frame"/>
+  <joint name="laser_frame_joint" type="fixed">
+    <parent link="lidar_link"/>
+    <child link="laser_frame"/>
+    <origin xyz="0 0 ${lidar_scan_offset}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ===== Camera pan head (revolute about Z) ===== -->
+  <link name="camera_pan_link">
+    <inertial>
+      <origin xyz="${pan_com_x} ${pan_com_y} ${pan_com_z}" rpy="0 0 0"/>
+      <mass value="${pan_mass}"/>
+      <inertia ixx="${pan_ixx}" ixy="${pan_ixy}" ixz="${pan_ixz}"
+               iyy="${pan_iyy}" iyz="${pan_iyz}" izz="${pan_izz}"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><mesh filename="${pkg}/camera_pan_head.stl"/></geometry>
+      <material name="pan_dark"/>
+    </visual>
+    <collision name="turntable_collision">
+      <origin xyz="0 0 ${pan_height/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="${pan_radius}" length="${pan_height}"/></geometry>
+    </collision>
+    <collision name="seat_plate_collision">
+      <origin xyz="0 0 ${pan_height + plate_t/2}" rpy="0 0 0"/>
+      <geometry><box size="${plate_L} ${plate_W} ${plate_t}"/></geometry>
+    </collision>
+  </link>
+  <joint name="camera_pan_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="camera_pan_link"/>
+    <origin xyz="${mast_x} 0 ${deck_z + mast_height}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${pan_lower}" upper="${pan_upper}" effort="${pan_effort}" velocity="${pan_velocity}"/>
+    <dynamics damping="${pan_damping}"/>
+  </joint>
+
+  <!-- ===== Camera (rides on pan head) ===== -->
+  <link name="camera_link">
+    <inertial>
+      <origin xyz="${camera_com_x} ${camera_com_y} ${camera_com_z}" rpy="0 0 0"/>
+      <mass value="${camera_mass}"/>
+      <inertia ixx="${camera_ixx}" ixy="${camera_ixy}" ixz="${camera_ixz}"
+               iyy="${camera_iyy}" iyz="${camera_iyz}" izz="${camera_izz}"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><mesh filename="${pkg}/camera.stl"/></geometry>
+      <material name="camera_orange"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><box size="${camera_D} ${camera_W} ${camera_H}"/></geometry>
+    </collision>
+  </link>
+  <joint name="camera_joint" type="fixed">
+    <parent link="camera_pan_link"/>
+    <child link="camera_link"/>
+    <!-- camera body centre sits camera_H/2 above the seat plate -->
+    <origin xyz="0 0 ${pan_height + plate_t + camera_H/2}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ROS optical convention (Z forward, X right, Y down) at the lens face -->
+  <link name="camera_optical_frame"/>
+  <joint name="camera_optical_joint" type="fixed">
+    <parent link="camera_link"/>
+    <child link="camera_optical_frame"/>
+    <origin xyz="${camera_lens_x} 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+  </joint>
+
+  <!-- ===== Front distance sensor (body tilted 30 deg down in CAD) ===== -->
+  <link name="front_range_link">
+    <inertial>
+      <origin xyz="${range_com_x} ${range_com_y} ${range_com_z}" rpy="0 0 0"/>
+      <mass value="${range_mass}"/>
+      <inertia ixx="${range_ixx}" ixy="${range_ixy}" ixz="${range_ixz}"
+               iyy="${range_iyy}" iyz="${range_iyz}" izz="${range_izz}"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><mesh filename="${pkg}/front_range_sensor.stl"/></geometry>
+      <material name="range_green"/>
+    </visual>
+    <!-- no separate collision: enclosed by base_link front_guard_collision -->
+  </link>
+  <joint name="front_range_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="front_range_link"/>
+    <origin xyz="${range_x} 0 ${range_z}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Beam frame: +X along the beam, pitched 30 deg below horizontal (+pitch = nose down) -->
+  <link name="front_range_beam_frame"/>
+  <joint name="front_range_beam_joint" type="fixed">
+    <parent link="front_range_link"/>
+    <child link="front_range_beam_frame"/>
+    <origin xyz="0 0 0" rpy="0 ${range_tilt_deg*pi/180} 0"/>
+  </joint>
+
+  <xacro:if value="$(arg use_gazebo)">
+    <xacro:include filename="$(find hsr_description)/urdf/hsr.gazebo.xacro"/>
+  </xacro:if>
+</robot>

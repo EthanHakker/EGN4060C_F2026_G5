@@ -1,0 +1,178 @@
+<?xml version="1.0"?>
+<!--
+  Gazebo (gz-sim, tested target: Gazebo Harmonic / ROS 2 Jazzy) extensions for the HSR robot.
+  Sensor specifications are [ESTIMATE] generic values (not a specific product) - replace
+  with your real sensors' datasheet values once hardware is chosen.
+
+  NOTE: the world must load gz-sim-sensors-system (render_engine ogre2) for the LiDAR,
+  camera and range sensor to produce data. worlds/hsr_test_world.sdf does this.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- ===== Contact / friction ===== -->
+  <xacro:macro name="wheel_contact" params="link">
+    <gazebo reference="${link}">
+      <mu1>${wheel_mu1}</mu1>
+      <mu2>${wheel_mu2}</mu2>
+      <kp>${wheel_kp}</kp>
+      <kd>${wheel_kd}</kd>
+      <minDepth>0.001</minDepth>
+    </gazebo>
+  </xacro:macro>
+  <xacro:wheel_contact link="front_left_wheel_link"/>
+  <xacro:wheel_contact link="front_right_wheel_link"/>
+  <xacro:wheel_contact link="rear_left_wheel_link"/>
+  <xacro:wheel_contact link="rear_right_wheel_link"/>
+
+  <gazebo reference="base_link">
+    <mu1>${body_mu}</mu1>
+    <mu2>${body_mu}</mu2>
+  </gazebo>
+
+  <!-- ===== 2D LiDAR: scan plane at laser_frame (Z = 0.225 m) ===== -->
+  <gazebo reference="laser_frame">
+    <sensor name="lidar" type="gpu_lidar">
+      <gz_frame_id>laser_frame</gz_frame_id>
+      <topic>/scan</topic>
+      <update_rate>10</update_rate>
+      <always_on>true</always_on>
+      <visualize>false</visualize>
+      <lidar>
+        <scan>
+          <horizontal>
+            <samples>360</samples>
+            <resolution>1</resolution>
+            <!-- exactly 1 deg spacing, no duplicated beam at +/-180 deg -->
+            <min_angle>-3.14159265</min_angle>
+            <max_angle>3.12413936</max_angle>
+          </horizontal>
+          <vertical>
+            <samples>1</samples>
+            <resolution>1</resolution>
+            <min_angle>0</min_angle>
+            <max_angle>0</max_angle>
+          </vertical>
+        </scan>
+        <range>
+          <min>0.15</min>
+          <max>12.0</max>
+          <resolution>0.01</resolution>
+        </range>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.01</stddev>
+        </noise>
+      </lidar>
+    </sensor>
+  </gazebo>
+
+  <!-- ===== Pan camera (looks along camera_link +X) ===== -->
+  <gazebo reference="camera_link">
+    <sensor name="camera" type="camera">
+      <gz_frame_id>camera_optical_frame</gz_frame_id>
+      <topic>/camera/image_raw</topic>
+      <update_rate>15</update_rate>
+      <always_on>true</always_on>
+      <visualize>false</visualize>
+      <pose>${camera_lens_x} 0 0 0 0 0</pose>
+      <camera name="pan_camera">
+        <camera_info_topic>/camera/camera_info</camera_info_topic>
+        <horizontal_fov>1.2217</horizontal_fov>  <!-- 70 deg -->
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>0.05</near>
+          <far>30.0</far>
+        </clip>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.007</stddev>
+        </noise>
+      </camera>
+    </sensor>
+  </gazebo>
+
+  <!-- ===== Front distance sensor: narrow cone along front_range_beam_frame +X (30 deg down) =====
+       Modelled as a 5-ray gpu_lidar spanning ~15 deg (ultrasonic/ToF-like). Publishes a
+       5-sample LaserScan; take the minimum valid range as the distance reading. -->
+  <gazebo reference="front_range_beam_frame">
+    <sensor name="front_range" type="gpu_lidar">
+      <gz_frame_id>front_range_beam_frame</gz_frame_id>
+      <topic>/front_range/scan</topic>
+      <update_rate>20</update_rate>
+      <always_on>true</always_on>
+      <visualize>false</visualize>
+      <lidar>
+        <scan>
+          <horizontal>
+            <samples>5</samples>
+            <resolution>1</resolution>
+            <min_angle>-0.1309</min_angle>
+            <max_angle>0.1309</max_angle>
+          </horizontal>
+          <vertical>
+            <samples>1</samples>
+            <resolution>1</resolution>
+            <min_angle>0</min_angle>
+            <max_angle>0</max_angle>
+          </vertical>
+        </scan>
+        <range>
+          <min>0.02</min>
+          <max>4.0</max>
+          <resolution>0.005</resolution>
+        </range>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.005</stddev>
+        </noise>
+      </lidar>
+    </sensor>
+  </gazebo>
+
+  <!-- ===== Model plugins ===== -->
+  <gazebo>
+    <!-- Skid-steer drive: both wheels on each side driven together -->
+    <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
+      <left_joint>front_left_wheel_joint</left_joint>
+      <left_joint>rear_left_wheel_joint</left_joint>
+      <right_joint>front_right_wheel_joint</right_joint>
+      <right_joint>rear_right_wheel_joint</right_joint>
+      <!-- effective (slip-calibrated) separation, not the physical 0.36 m track -->
+      <wheel_separation>${skid_steer_wheel_separation}</wheel_separation>
+      <wheel_radius>${wheel_radius}</wheel_radius>
+      <max_linear_acceleration>1.0</max_linear_acceleration>
+      <max_angular_acceleration>3.0</max_angular_acceleration>
+      <max_linear_velocity>0.8</max_linear_velocity>
+      <max_angular_velocity>2.0</max_angular_velocity>
+      <topic>/cmd_vel</topic>
+      <odom_topic>/odom</odom_topic>
+      <tf_topic>/tf</tf_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_footprint</child_frame_id>
+      <odom_publisher_frequency>30</odom_publisher_frequency>
+    </plugin>
+
+    <!-- Publishes all joint positions/velocities (wheels + pan) -->
+    <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
+      <topic>/joint_states</topic>
+    </plugin>
+
+    <!-- Camera pan: send a target angle (rad) as gz.msgs.Double / std_msgs/Float64 -->
+    <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+      <joint_name>camera_pan_joint</joint_name>
+      <topic>/camera_pan/cmd_pos</topic>
+      <p_gain>3.0</p_gain>
+      <i_gain>0.0</i_gain>
+      <d_gain>0.05</d_gain>
+      <cmd_max>${pan_effort}</cmd_max>
+      <cmd_min>${-pan_effort}</cmd_min>
+    </plugin>
+  </gazebo>
+</robot>
