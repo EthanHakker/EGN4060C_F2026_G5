@@ -137,12 +137,12 @@ class robot:
                 
     
     def update_nav(self):
-        for n in range(self.vision*2):
+        for n in range(int(self.vision*2*detail)):
             X = int(self.x)-self.vision+n
-            if X>=0 and X<size:
-                for m in range(self.vision*2):
+            if X>=0 and X<size*detail:
+                for m in range(int(self.vision*2*detail)):
                     Y = int(self.y)-self.vision+m
-                    if Y>=0 and Y<size:
+                    if Y>=0 and Y<size*detail:
                         map_val = self.map_arr[X][Y]
                         nav_val = self.nav_arr[X][Y]
                         if map_val==1 and nav_val==0:
@@ -151,68 +151,68 @@ class robot:
                             for a in range(5):
                                 for b in range(5):
                                     if abs(a-2)+abs(b-2)<=2:
-                                        A=max(0,min(size-1,X+a-2))
-                                        B=max(0,min(size-1,Y+b-2))
+                                        A=max(0,min(size*detail-1,X+a-2))
+                                        B=max(0,min(size*detail-1,Y+b-2))
                                         self.nav_arr[A][B] = -1
 
 
     def find(self):
         s = 1
-        x = round(self.x+math.sin(self.o)*5)
-        y = round(self.y+math.cos(self.o)*5)
-        while s<size:
-            X = max(1,min(size-2,x+s))
-            Y = max(1,min(size-2,y))
+        x = round(self.x+math.sin(self.o_true)*5)
+        y = round(self.y+math.cos(self.o_true)*5)
+        while s<size*detail:
+            X = max(1,min(size*detail-2,x+s))
+            Y = max(1,min(size*detail-2,y))
             if self.nav_arr[X][Y]==0 and self.closest(X, Y): return [X,Y]
-            X = max(1,min(size-2,x-s))
-            Y = max(1,min(size-2,y))
+            X = max(1,min(size*detail-2,x-s))
+            Y = max(1,min(size*detail-2,y))
             if self.nav_arr[X][Y]==0 and self.closest(X, Y): return [X,Y]
-            X = max(1,min(size-2,x))
-            Y = max(1,min(size-2,y+s))
+            X = max(1,min(size*detail-2,x))
+            Y = max(1,min(size*detail-2,y+s))
             if self.nav_arr[X][Y]==0 and self.closest(X, Y): return [X,Y]
-            X = max(1,min(size-2,x))
-            Y = max(1,min(size-2,y-s))
+            X = max(1,min(size*detail-2,x))
+            Y = max(1,min(size*detail-2,y-s))
             if self.nav_arr[X][Y]==0 and self.closest(X, Y): return [X,Y]
             for n in range(s-1):
-                X = max(1,min(size-2,x-s+n+1))
-                Y = max(1,min(size-2,y+n+1))
+                X = max(1,min(size*detail-2,x-s+n+1))
+                Y = max(1,min(size*detail-2,y+n+1))
                 if self.nav_arr[X][Y]==0 and self.closest(X, Y): return [X,Y]
-                X = max(1,min(size-2,x-s+n+1))
-                Y = max(1,min(size-2,y-n-1))
+                X = max(1,min(size*detail-2,x-s+n+1))
+                Y = max(1,min(size*detail-2,y-n-1))
                 if self.nav_arr[X][Y]==0 and self.closest(X, Y): return [X,Y]
-                X = max(1,min(size-2,x+s-n-1))
-                Y = max(1,min(size-2,y+n+1))
+                X = max(1,min(size*detail-2,x+s-n-1))
+                Y = max(1,min(size*detail-2,y+n+1))
                 if self.nav_arr[X][Y]==0 and self.closest(X, Y): return [X,Y]
-                X = max(1,min(size-2,x+s-n-1))
-                Y = max(1,min(size-2,y-n-1))
+                X = max(1,min(size*detail-2,x+s-n-1))
+                Y = max(1,min(size*detail-2,y-n-1))
                 if self.nav_arr[X][Y]==0 and self.closest(X, Y): return [X,Y]
             s+=1
         s=1
-        while s<size:
-            X = max(1,min(size-2,x+s))
-            Y = max(1,min(size-2,y))
+        while s<size*detail:
+            X = max(1,min(size*detail-2,x+s))
+            Y = max(1,min(size*detail-2,y))
             if self.nav_arr[X][Y]==0: return [X,Y]
-            X = max(1,min(size-2,x-s))
-            Y = max(1,min(size-2,y))
+            X = max(1,min(size*detail-2,x-s))
+            Y = max(1,min(size*detail-2,y))
             if self.nav_arr[X][Y]==0: return [X,Y]
-            X = max(1,min(size-2,x))
-            Y = max(1,min(size-2,y+s))
+            X = max(1,min(size*detail-2,x))
+            Y = max(1,min(size*detail-2,y+s))
             if self.nav_arr[X][Y]==0: return [X,Y]
-            X = max(1,min(size-2,x))
-            Y = max(1,min(size-2,y-s))
+            X = max(1,min(size*detail-2,x))
+            Y = max(1,min(size*detail-2,y-s))
             if self.nav_arr[X][Y]==0: return [X,Y]
             for n in range(s-1):
-                X = max(1,min(size-2,x-s+n+1))
-                Y = max(1,min(size-2,y+n+1))
+                X = max(1,min(size*detail-2,x-s+n+1))
+                Y = max(1,min(size*detail-2,y+n+1))
                 if self.nav_arr[X][Y]==0: return [X,Y]
-                X = max(1,min(size-2,x-s+n+1))
-                Y = max(1,min(size-2,y-n-1))
+                X = max(1,min(size*detail-2,x-s+n+1))
+                Y = max(1,min(size*detail-2,y-n-1))
                 if self.nav_arr[X][Y]==0: return [X,Y]
-                X = max(1,min(size-2,x+s-n-1))
-                Y = max(1,min(size-2,y+n+1))
+                X = max(1,min(size*detail-2,x+s-n-1))
+                Y = max(1,min(size*detail-2,y+n+1))
                 if self.nav_arr[X][Y]==0: return [X,Y]
-                X = max(1,min(size-2,x+s-n-1))
-                Y = max(1,min(size-2,y-n-1))
+                X = max(1,min(size*detail-2,x+s-n-1))
+                Y = max(1,min(size*detail-2,y-n-1))
                 if self.nav_arr[X][Y]==0: return [X,Y]
             s+=1
         #print("no more")
