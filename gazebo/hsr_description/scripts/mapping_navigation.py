@@ -54,12 +54,12 @@ class robot:
         self.o_true = 0
         self.vision = vision
         self.node = node
-        self.v = 0
+        self.v = 0.0
         self.t_r = 0
         self.pth = []
         self.nd = 0
         self.mode = 0
-        self.dest = [0,0]
+        self.dest = [0.0,0.0]
         self.done = False
         self.map_arr = map_arr #[[0 for n in range(size)] for m in range(size)]
         self.nav_arr = nav_arr #[[0 for n in range(size)] for m in range(size)]
@@ -316,8 +316,8 @@ class robot:
         o0 = n.last["/odom"]
         self.x, self.y = o0.pose.pose.position.x, o0.pose.pose.position.y
         self.o_true = yaw_of(n.last["/odom"])
-        d_o = ((self.o-self.o_true)%(2*math.pi))
-        if d_o>math.pi: d_o-=2*math.pi
+        d_o = ((self.o-self.o_true)%(2.0*math.pi))
+        if d_o>math.pi: d_o-=2.0*math.pi
         if self.done:
             #print("done")
             return
@@ -325,7 +325,7 @@ class robot:
             if remap == self.ID: remap = 0
             else:
                 self.t_r = 0
-                self.v = 0
+                self.v = 0.0
                 self.nd = 0
         if self.nd > 0:
             if self.nd >= len(self.pth):
@@ -340,7 +340,7 @@ class robot:
                     dr = self.dist(0.5*math.pi)
                     if d!=0 and d<=3 or self.nav_dist(1,0)==0:
                         self.t_r = 0
-                        self.v = 0
+                        self.v = 0.0
                         self.nd = 0
                     else:
                         #self.x+= math.sin(self.o)*self.v
@@ -350,7 +350,7 @@ class robot:
         else:
             if remap == 0: remap = self.ID
             self.nd = 0
-            self.v = 0
+            self.v = 0.0
             if self.mode==0:
                 self.map_area()
                 self.mode += 1
@@ -368,7 +368,7 @@ class robot:
         tw = Twist()
         if abs(d_o)>0.1:
             tw.angular.z = -d_o
-            tw.linear.x = 0
+            tw.linear.x = 0.0
         else:
             tw.linear.x = self.v
             self.t_r -= d_tr
@@ -518,7 +518,7 @@ def main():
 
     print(f"\n{sum(results)}/{len(results)} checks passed")
     print("engaging mapping mode")
-    R = robot(1,0,0,0,8,n)
+    R = robot(1,0.0,0.0,0.0,8.0,n)
     while 1:
         R.map()
         if R.done: break
