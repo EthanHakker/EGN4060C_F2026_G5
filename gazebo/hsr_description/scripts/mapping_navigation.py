@@ -518,7 +518,7 @@ def main():
 
     print(f"\n{sum(results)}/{len(results)} checks passed")
     print("engaging mapping mode")
-    R = robot(1,0,0,8,n)
+    R = robot(1,0,0,0,8,n)
     while 1:
         R.map()
         if R.done: break
