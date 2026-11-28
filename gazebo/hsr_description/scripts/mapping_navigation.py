@@ -369,7 +369,7 @@ class robot:
                     self.mode = 0
         tw = Twist()
         if abs(d_o)>0.1:
-            tw.angular.z = -d_o
+            tw.angular.z = d_o
             tw.linear.x = 0.0
         else:
             tw.linear.x = self.v
