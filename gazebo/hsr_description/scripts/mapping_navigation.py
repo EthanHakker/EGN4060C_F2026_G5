@@ -369,13 +369,18 @@ class robot:
                     self.mode = 0
         tw = Twist()
         if abs(d_o)>0.1:
-            tw.angular.z = -d_o/abs(d_o)
-            tw.linear.x = 0.0
+            while abs(d_o)>0.1:
+                tw.angular.z = -d_o/abs(d_o)
+                tw.linear.x = 0.0
+                n.cmd.publish(tw)
+            print("stopping spin")
+            n.spin_for(1.5, during=lambda: n.cmd.publish(Twist()))
+            
         else:
             tw.angular.z = 0.0
             tw.linear.x = self.v
             self.t_r -= d_tr
-        n.cmd.publish(tw)
+            n.cmd.publish(tw)
 
 
 
