@@ -138,10 +138,10 @@ class robot:
     
     def update_nav(self):
         for n in range(int(self.vision*2*detail)):
-            X = int(self.x)-self.vision+n
+            X = int(self.x-self.vision+n)
             if X>=0 and X<size*detail:
                 for m in range(int(self.vision*2*detail)):
-                    Y = int(self.y)-self.vision+m
+                    Y = int(self.y-self.vision+m)
                     if Y>=0 and Y<size*detail:
                         map_val = self.map_arr[X][Y]
                         nav_val = self.nav_arr[X][Y]
@@ -151,8 +151,8 @@ class robot:
                             for a in range(5):
                                 for b in range(5):
                                     if abs(a-2)+abs(b-2)<=2:
-                                        A=max(0,min(size*detail-1,X+a-2))
-                                        B=max(0,min(size*detail-1,Y+b-2))
+                                        A=int(max(0,min(size*detail-1,X+a-2)))
+                                        B=int(max(0,min(size*detail-1,Y+b-2)))
                                         self.nav_arr[A][B] = -1
 
 
@@ -238,7 +238,7 @@ class robot:
             #t0 = time.time()
             cur = opn[0]
             N = 0
-            M = size*size
+            M = size*size*detail*detail
             for n in range(len(opn)):
                 if (opn[n].h+opn[n].g)<M or ((opn[n].h+opn[n].g)==M and opn[n].h<cur.h):
                     cur = opn[n]
@@ -254,7 +254,7 @@ class robot:
                     if a!=1 or b!=1:
                         X = cur.x-1+a
                         Y = cur.y-1+b
-                        if X>=0 and X<size and Y>=0 and Y<size:
+                        if X>=0 and X<size*detail and Y>=0 and Y<size*detail:
                             if self.nav_arr[X][Y]>=0:
                                 #t0 = time.time()
                                 dg = 1
@@ -314,7 +314,7 @@ class robot:
         d_tr = 0
         n = self.node
         o0 = n.last["/odom"]
-        self.x, self.y = o0.pose.pose.position.x, o0.pose.pose.position.y
+        self.x, self.y = o0.pose.pose.position.x+10.0, o0.pose.pose.position.y+10.0
         self.o_true = yaw_of(n.last["/odom"])
         d_o = ((self.o-self.o_true)%(2.0*math.pi))
         if d_o>math.pi: d_o-=2.0*math.pi
@@ -359,7 +359,9 @@ class robot:
                 self.mode += 1
             else:
                 pos = self.find()
-                if pos==[-1,-1]: return #self.done = True
+                if pos==[-1,-1]:
+                    self.done = True
+                    return
                 else:
                     self.pth = self.A_star(pos[0],pos[1])
                     self.goto(self.pth[0][0],self.pth[0][1])
